@@ -1,16 +1,7 @@
 import { createClient } from "@/utils/supabase/client";
 
-export async function signInWithGoogle(requestedRole: string = "tenant") {
+export async function signInWithGoogle() {
   const supabase = createClient();
-
-  // Store the requested role locally for the OAuth callback.
-  const allowedRoles = ["tenant", "landlord", "caretaker"];
-
-  const role = allowedRoles.includes(requestedRole)
-    ? requestedRole
-    : "tenant";
-
-  sessionStorage.setItem("requested_role", role);
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -20,8 +11,19 @@ export async function signInWithGoogle(requestedRole: string = "tenant") {
   });
 
   if (error) {
-    sessionStorage.removeItem("requested_role");
     console.error("Google sign-in error:", error.message);
     throw error;
   }
+}
+
+export async function signOut() {
+  const supabase = createClient();
+
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    throw error;
+  }
+
+  window.location.href = "/account";
 }

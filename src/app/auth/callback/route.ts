@@ -6,22 +6,23 @@ export async function GET(request: Request) {
 
   const code = searchParams.get("code");
 
-  let next = searchParams.get("next") ?? "/account";
+  let next = searchParams.get("next") ?? "/dashboard";
 
-  // Prevent external redirect URLs
+  // Prevent external redirects
   if (!next.startsWith("/") || next.startsWith("//")) {
-    next = "/account";
+    next = "/dashboard";
   }
 
   if (code) {
     const supabase = await createClient();
 
-    const { error } =
-      await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
       return NextResponse.redirect(new URL(next, origin));
     }
+
+    console.error("OAuth callback error:", error.message);
   }
 
   return NextResponse.redirect(
