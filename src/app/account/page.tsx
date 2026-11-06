@@ -12,14 +12,16 @@ export default function Page() {
   script.dataset.awkaApp = "true";
 
   script.onload = () => {
+    const form = document.getElementById("account-form");
+    form?.addEventListener("submit", (event) => { event.preventDefault(); document.getElementById("account-message")!.textContent = "Please continue with Google to create or access your verified account."; document.getElementById("account-message")!.classList.remove("hidden"); });
+    const demoLinks = document.getElementById("demo-links");
+    if (demoLinks) demoLinks.classList.add("hidden");
     const googleButton = document.getElementById("google-signin");
 
     googleButton?.addEventListener("click", async () => {
       try {
-        const role = (document.getElementById("account-role") as HTMLSelectElement | null)?.value || "tenant";
-        const fullName = (document.getElementById("account-name") as HTMLInputElement | null)?.value || "";
-        const phone = (document.getElementById("account-phone") as HTMLInputElement | null)?.value || "";
-        await signInWithGoogle({ role: role as "tenant" | "landlord" | "caretaker", fullName, phone });
+        const selectedRole = (document.getElementById("account-role") as HTMLSelectElement | null)?.value as "tenant" | "landlord" | "caretaker" | undefined;
+        await signInWithGoogle(selectedRole || "tenant");
       } catch (error) {
         console.error("Google sign-in failed:", error);
       }

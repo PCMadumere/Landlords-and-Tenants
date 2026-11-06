@@ -74,34 +74,17 @@
     render();
   }
 
-  // Account registration is handled by Supabase Google OAuth in the Next.js account page.
+  // Account registration: Google is the only verification option. The OAuth step is simulated here.
   if (page === 'account') {
     let mode = new URLSearchParams(location.search).get('mode') === 'signup' ? 'signup' : 'signin';
-    const roleText = {
-      tenant: 'Browse listings and request viewings after signing in with Google.',
-      landlord: 'Create a landlord account with Google to manage your property listings.',
-      caretaker: 'Create a caretaker account with Google to manage rooms or a lodge.'
-    };
-    function guidance() {
-      const target = $('role-guidance');
-      if (target) target.textContent = roleText[$('account-role').value] || roleText.tenant;
+    const roleText = { tenant: 'You can browse without verification. Google verification is required before you can request a viewing.', landlord: 'You can submit properties and rooms without verification. Your account and listings will be marked not verified.', caretaker: 'You can submit lodges and room availability without verification. Your account and listings will be marked not verified.' };
+    function guidance() { $('role-guidance').textContent = roleText[$('account-role').value]; }
+    function setMode(next) { mode = next; document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === mode)); $('account-title').textContent = mode === 'signup' ? 'Create your account' : 'Welcome back'; $('account-description').textContent = mode === 'signup' ? 'Choose how you will use Awka Direct.' : 'Continue with Google or preview your saved demo account.'; $('signup-fields').classList.toggle('hidden', mode === 'signin'); $('signin-fields').classList.toggle('hidden', mode !== 'signin'); $('account-name').required = mode === 'signup'; $('account-email').required = mode === 'signup'; $('signin-email').required = false; $('account-role').required = mode === 'signup'; $('account-submit').textContent = mode === 'signup' ? 'Continue without verification' : 'Continue to dashboard'; $('account-message').classList.add('hidden'); }
+    function finish(verified) {
+      let u; if (mode === 'signup') { if (!$('account-form').reportValidity()) return; u = { id: makeId('USR'), name: $('account-name').value.trim(), email: $('account-email').value.trim(), phone: $('account-phone').value.trim(), role: $('account-role').value, googleVerified: verified, verificationStatus: verified ? 'google_verified_demo' : 'not_verified', status: 'Active', createdAt: new Date().toISOString(), demo: true }; } else { const existing = session(); if (existing) { u = { ...existing, googleVerified: verified || existing.googleVerified, verificationStatus: (verified || existing.googleVerified) ? 'google_verified_demo' : 'not_verified' }; } else { const email = String($('signin-email')?.value || '').trim() || (verified ? 'google.demo@example.test' : ''); if (!email) { $('account-message').textContent = 'Enter your email or create an account first.'; $('account-message').classList.remove('hidden'); return; } u = { id: makeId('USR'), name: email.split('@')[0].replace(/[._-]/g, ' '), email, phone: '', role: 'tenant', googleVerified: verified, verificationStatus: verified ? 'google_verified_demo' : 'not_verified', status: 'Active', demo: true }; } }
+      write(STORE.session, u); write(STORE.profile, { ...read(STORE.profile, {}), ...u }); const users = getUsers(); if (!users.some(x => x.id === u.id)) users.unshift({ id: u.id, name: u.name, role: u.role, email: u.email, status: 'Active', googleVerified: u.googleVerified }); write(STORE.users, users); $('account-message').innerHTML = `<strong>You're ready to continue.</strong><br>Role: ${esc(u.role)} · Status: ${u.googleVerified ? 'Google verification simulated' : 'Not verified'}<br>${u.role === 'tenant' && !u.googleVerified ? 'You can browse, but viewing requests are locked until you verify with Google.' : u.role !== 'tenant' && !u.googleVerified ? 'You can submit property and room listings. They will remain not verified and pending review.' : ''}<p><a class="btn btn-primary btn-wide" href="/dashboard?role=${encodeURIComponent(u.role)}">Open ${esc(u.role)} dashboard →</a></p>`; $('account-message').classList.remove('hidden'); toast(verified ? 'Google verification simulated for demo.' : 'Account created as not verified.');
     }
-    function setMode(next) {
-      mode = next;
-      document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-      $('account-title').textContent = mode === 'signup' ? 'Create your account' : 'Welcome back';
-      $('account-description').textContent = mode === 'signup' ? 'Choose how you will use Awka Direct, then continue with Google.' : 'Sign in securely with your Google account.';
-      $('signup-fields').classList.toggle('hidden', mode !== 'signup');
-      $('signin-fields').classList.add('hidden');
-      $('account-name').required = false;
-      $('account-email').required = false;
-      $('account-submit').disabled = true;
-    }
-    document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
-    $('account-role').addEventListener('change', guidance);
-    $('account-form').addEventListener('submit', e => e.preventDefault());
-    guidance();
-    setMode(mode);
+    document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode))); $('account-role').addEventListener('change', guidance); $('account-form').addEventListener('submit', e => { e.preventDefault(); finish(false); }); guidance(); setMode(mode);
   }
 
   // Role dashboards
