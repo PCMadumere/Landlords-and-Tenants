@@ -21,7 +21,7 @@ export default function Page() {
     googleButton?.addEventListener("click", async () => {
       try {
         const selectedRole = (document.getElementById("account-role") as HTMLSelectElement | null)?.value as "tenant" | "landlord" | "caretaker" | undefined;
-        await signInWithGoogle(selectedRole || "tenant");
+        await signInWithGoogle();
       } catch (error) {
         console.error("Google sign-in failed:", error);
       }
