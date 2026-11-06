@@ -1,19 +1,42 @@
-"use client";
-import { useEffect } from "react";
 
-export default function Page() {
-  useEffect(() => {
-    document.body.dataset.page = "dashboard";
-    const script = document.createElement("script");
-    script.src = "/app.js";
-    script.async = false;
-    script.dataset.awkaApp = "true";
-    document.body.appendChild(script);
-    return () => {
-      script.remove();
-      delete document.body.dataset.page;
-    };
-  }, []);
+import { redirect } from "next/navigation";
+import { createClient } from "@/utils/supabase/server";
+import DashboardClient from "@/app/dashboard/dashboard-client";
 
-  return <div dangerouslySetInnerHTML={{ __html: "<header class=\"dash-topbar\"><a class=\"brand\" href=\"/\"><span class=\"brand-mark\">A</span><span>awka<span\r\n                    class=\"brand-light\">direct</span><small>WORKSPACE</small></span></a>\r\n        <div class=\"dash-top-actions\"><span class=\"demo-tag\">FRONTEND DEMO</span><a href=\"/\"\r\n                class=\"btn btn-light\">Marketplace</a><span id=\"top-avatar\" class=\"avatar\">AD</span></div>\r\n    </header>\r\n    <div class=\"dashboard-layout\">\r\n        <aside class=\"sidebar\"><label class=\"role-switch-label\">Preview workspace<select id=\"role-switch\">\r\n                    <option value=\"tenant\">Tenant</option>\r\n                    <option value=\"landlord\">Landlord</option>\r\n                    <option value=\"caretaker\">Caretaker</option>\r\n                    <option value=\"admin\">Admin</option>\r\n                </select></label>\r\n            <nav id=\"side-nav\" class=\"side-nav\"></nav><a class=\"sidebar-market\" href=\"/\">\u2190 Back to\r\n                marketplace</a>\r\n        </aside>\r\n        <main class=\"dash-main\">\r\n            <div class=\"dash-heading\">\r\n                <div><span id=\"dash-eyebrow\" class=\"eyebrow\">WORKSPACE</span>\r\n                    <h1 id=\"dash-title\">Dashboard</h1>\r\n                    <p id=\"dash-subtitle\">Manage your activity.</p>\r\n                </div><button id=\"primary-action\" class=\"btn btn-primary\">Continue</button>\r\n            </div>\r\n            <div id=\"screen-content\"></div>\r\n            <footer class=\"dash-footer\">Awka Direct \u00b7 Demo data is stored in this browser only.</footer>\r\n        </main>\r\n    </div>\r\n    <dialog id=\"dash-dialog\" class=\"dialog\"><button class=\"dialog-close\" data-close-dialog aria-label=\"Close\">\u00d7</button>\r\n        <div id=\"dash-dialog-content\"></div>\r\n    </dialog>\r\n    <div id=\"toast\" class=\"toast\" role=\"status\"></div>" }} />;
+const allowedRoles = ["tenant", "landlord", "caretaker", "admin"] as const;
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ role?: string }>;
+}) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/account?next=/dashboard");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || !allowedRoles.includes(profile.role)) {
+    redirect("/account?error=profile_not_found");
+  }
+
+  const params = await searchParams;
+  const requestedRole = params.role;
+  const actualRole = profile.role as (typeof allowedRoles)[number];
+
+  // Only an admin can switch between role workspaces. Query-string values never grant access.
+  if (actualRole !== "admin" && requestedRole && requestedRole !== actualRole) {
+    redirect(`/dashboard?role=${actualRole}`);
+  }
+
+  const displayRole =
+    actualRole === "admin" && requestedRole && allowedRoles.includes(requestedRole as any)
+      ? requestedRole
+      : actualRole;
+
+  return <DashboardClient initialRole={displayRole} />;
 }
